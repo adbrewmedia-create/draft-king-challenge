@@ -569,6 +569,8 @@ async function loadTodayFixtures() {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const todays   = data.matches.filter(m => m.date === todayStr);
 
+    resolvePendingFixtures(data.matches);
+
     if (todays.length === 0) {
       container.innerHTML = noFixturesHTML();
       return;
@@ -582,6 +584,49 @@ async function loadTodayFixtures() {
 
 function noFixturesHTML() {
   return `<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.5rem;text-align:center;margin-bottom:1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">No fixtures today</div><div style="font-size:13px;color:var(--muted2);margin-top:6px">Check back on the next matchday.</div></div>`;
+}
+
+/* ══ RESOLVE PENDING FIXTURES ══ */
+function resolvePendingFixtures(allMatches) {
+  const hist    = getHistory();
+  const pending = hist.filter(h => !h.result);
+  if (!pending.length) return;
+
+  let totalAdded = 0;
+  let resolved   = 0;
+
+  pending.forEach(entry => {
+    const match = allMatches.find(m => fixtureId(m) === entry.id);
+    if (!match || !match.score?.ft) return;
+
+    const ft     = match.score.ft;
+    const result = ft[0] > ft[1] ? 'H' : ft[0] < ft[1] ? 'A' : 'D';
+    const predCorrect = entry.pred === result;
+
+    let ptsToday = 0;
+    const updatedXi = entry.xi.map(p => {
+      if (!predCorrect) return {...p, outcome:'lose', pts:0};
+      if (result === 'D') { ptsToday += 0.5; return {...p, outcome:'draw', pts:0.5}; }
+      const winning = result === 'H' ? 'home' : 'away';
+      const scored  = p.side === winning;
+      if (scored) ptsToday++;
+      return {...p, outcome: scored ? 'win' : 'lose', pts: scored ? 1 : 0};
+    });
+    if (result === 'D' && predCorrect) ptsToday = Math.round(ptsToday);
+    if (predCorrect) ptsToday += 1;
+
+    totalAdded += ptsToday;
+    resolved++;
+
+    saveHistory({...entry, result, pts: ptsToday, predCorrect, xi: updatedXi});
+  });
+
+  if (resolved > 0) {
+    localStorage.setItem(PTS_KEY, getTotalPts() + totalAdded);
+    updateNavPts();
+    updateLbToggleSub();
+    if (totalAdded > 0) setTimeout(() => showToast(`+${totalAdded} pts from results!`), 800);
+  }
 }
 
 /* ══ RENDER ALL FIXTURES ══ */
