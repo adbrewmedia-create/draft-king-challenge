@@ -276,6 +276,28 @@ nav{background:var(--bar);border-bottom:1px solid var(--hair);position:sticky;to
       <p class="hero-sub">Pick the result for each fixture. Fate deals your XI. Right call = points per winning player + bonus.</p>
     </div>
 
+    <div id="home-pts-block" style="display:none;margin-bottom:1.25rem">
+      <div style="background:var(--ng);border:1px solid var(--gb);border-radius:16px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);margin-bottom:6px">Your Points</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:54px;color:var(--gold);line-height:1" id="home-pts-num">0</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">pts</span>
+          </div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;color:var(--chalk);line-height:1" id="home-played-num">0</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Played</div>
+          </div>
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;color:var(--chalk);line-height:1" id="home-hitrate-num">0%</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Hit Rate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="today-fixtures-container">
       <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.5rem;text-align:center;margin-bottom:1rem">
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.1em">Loading today's fixtures...</div>
@@ -540,6 +562,25 @@ function updateNavPts() {
   else el.style.display = 'none';
 }
 
+function updateHomePts() {
+  const pts    = getTotalPts();
+  const hist   = getHistory();
+  const played = hist.length;
+  const settled = hist.filter(h => h.result).length;
+  const correct = hist.filter(h => h.predCorrect).length;
+  const hitRate = settled > 0 ? Math.round(correct / settled * 100) : 0;
+
+  const block = document.getElementById('home-pts-block');
+  if (pts > 0 || played > 0) {
+    document.getElementById('home-pts-num').textContent    = pts;
+    document.getElementById('home-played-num').textContent = played;
+    document.getElementById('home-hitrate-num').textContent = hitRate + '%';
+    block.style.display = '';
+  } else {
+    block.style.display = 'none';
+  }
+}
+
 /* ══ GAME STATE ══ */
 let G = {
   todayMatches: [],
@@ -554,6 +595,7 @@ let G = {
 /* ══ INIT ══ */
 window.addEventListener('DOMContentLoaded', async () => {
   updateNavPts();
+  updateHomePts();
   updateLbToggleSub();
   startCountdown();
   await loadTodayFixtures();
@@ -624,6 +666,7 @@ function resolvePendingFixtures(allMatches) {
   if (resolved > 0) {
     localStorage.setItem(PTS_KEY, getTotalPts() + totalAdded);
     updateNavPts();
+    updateHomePts();
     updateLbToggleSub();
     if (totalAdded > 0) setTimeout(() => showToast(`+${totalAdded} pts from results!`), 800);
   }
@@ -882,6 +925,7 @@ function settleGame() {
   buildResultScreen(fix, result, ptsToday, playerResults, homePts, awayPts, pred, predCorrect);
   showScreen('screen-result');
   updateNavPts();
+  updateHomePts();
 }
 
 /* ══ RESULT SCREEN ══ */
@@ -1126,6 +1170,7 @@ function resetDemo() {
     .forEach(k => localStorage.removeItem(k));
   G._pendingPreds = {};
   updateNavPts();
+  updateHomePts();
   updateLbToggleSub();
   if (G.todayMatches.length > 0) renderAllFixtures(G.todayMatches);
   showTab('home');
