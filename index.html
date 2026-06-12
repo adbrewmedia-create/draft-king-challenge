@@ -428,6 +428,20 @@ nav{background:var(--bar);border-bottom:1px solid var(--hair);position:sticky;to
   </button>
 </div>
 
+<!-- PLAYERS MODAL -->
+<div id="players-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,26,.92);z-index:100;overflow-y:auto">
+  <div style="max-width:520px;margin:0 auto;padding:20px 20px 6rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 0 .75rem">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--gold);margin-bottom:5px" id="pm-eyebrow"></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;text-transform:uppercase;color:var(--chalk)">My <em style="font-style:normal;color:var(--gold)">XI</em></div>
+      </div>
+      <button onclick="closePlayersModal()" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);cursor:pointer">Close ✕</button>
+    </div>
+    <div id="pm-players-list"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -638,7 +652,8 @@ function playedPanelHTML(m, hist, s1, s2) {
         <div class="pred-panel-label" style="margin-top:3px">Result: <b style="color:${pending?'var(--muted)':correct?'var(--green)':'var(--red)'}">${resultLabel}</b></div>
       </div>
       <div class="played-pts ${pending?'pend':correct?'good':'zero'}">${pending?'—':hist.pts+'pts'}</div>
-    </div>`;
+    </div>
+    ${hist.xi ? `<button class="deal-btn" onclick="viewMyPlayers('${hist.id}')" style="margin-top:8px">View My Players →</button>` : ''}`;
 }
 
 /* ══ PREDICTION SELECTION ══ */
@@ -990,7 +1005,10 @@ async function shareResult() {
 function showTab(tab) {
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('bnav-'+tab)?.classList.add('active');
-  if (tab==='home') showScreen('screen-home');
+  if (tab==='home') {
+    if (G.todayMatches.length > 0) renderAllFixtures(G.todayMatches);
+    showScreen('screen-home');
+  }
   else if (tab==='selections') { renderSelections(); showScreen('screen-selections'); }
 }
 
@@ -1021,6 +1039,35 @@ function convertToBST(dateStr, timeStr) {
 function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+/* ══ VIEW MY PLAYERS ══ */
+function viewMyPlayers(fid) {
+  const hist = getHistory().find(h => h.id === fid);
+  if (!hist || !hist.xi) return;
+
+  document.getElementById('pm-eyebrow').textContent = `${hist.home} vs ${hist.away} · ${hist.date}`;
+  document.getElementById('pm-players-list').innerHTML = hist.xi.map((p, i) => {
+    const outcomeClass = p.outcome==='win'?'scored':p.outcome==='draw'?'half':p.outcome==='pending'?'pend':'missed';
+    const ptsText = p.outcome==='win'?'+1':p.outcome==='draw'?'+½':p.outcome==='pending'?'—':'+0';
+    return `
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:var(--muted2);width:22px;text-align:center">${i+1}</div>
+        <div style="font-size:22px">${p.flag}</div>
+        <div style="flex:1">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.02em;color:var(--chalk)">${p.n}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">${p.p} · ${p.side==='home'?hist.home:hist.away}</div>
+        </div>
+        <div class="pr-pts ${outcomeClass}">${ptsText}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('players-modal').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function closePlayersModal() {
+  document.getElementById('players-modal').style.display = 'none';
 }
 
 function startCountdown() {
